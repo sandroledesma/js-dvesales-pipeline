@@ -5,16 +5,18 @@ const { getShopifyOrders } = require('../clients/shopify');
 const { appendRows, getColumnValues, deleteDuplicatesByColumns } = require('../clients/sheets');
 
 // parse CLI args like --start=YYYY-MM-DD --end=YYYY-MM-DD --days=90
-const args = Object.fromEntries(
-  process.argv.slice(2).map(s => {
-    const [k, v] = s.replace(/^--/, '').split('=');
-    return [k, v ?? true];
-  })
-);
+function parseCliArgs() {
+  return Object.fromEntries(
+    process.argv.slice(2).map(s => {
+      const [k, v] = s.replace(/^--/, '').split('=');
+      return [k, v ?? true];
+    })
+  );
+}
 
-function buildRangeFromArgs() {
-  if (args.start && args.end) return { startISO: `${args.start}T00:00:00Z`, endISO: `${args.end}T23:59:59Z` };
-  if (args.days) return windowDaysBack(Number(args.days));
+function buildRangeFromArgs(options = {}) {
+  if (options.start && options.end) return { startISO: `${options.start}T00:00:00Z`, endISO: `${options.end}T23:59:59Z` };
+  if (options.days) return windowDaysBack(Number(options.days));
   return windowDaysBack(Number(process.env.START_DAYS_BACK || 35));
 }
 
@@ -22,9 +24,9 @@ function makeKey(channel, orderId, lineId) {
   return `${channel}|${orderId}|${lineId}`;
 }
 
-async function syncSales() {
+async function syncSales(options = {}) {
   try {
-    const { startISO, endISO } = buildRangeFromArgs();
+    const { startISO, endISO } = buildRangeFromArgs(options);
     console.log('Starting sales sync…');
     console.log(`Fetching orders from ${startISO} to ${endISO}`);
 
@@ -72,13 +74,15 @@ async function syncSales() {
     console.log(`Skipping ${objects.length - fresh.length} duplicates already in Sales_Fact`);
     console.log(`Appending ${fresh.length} new line rows`);
 
+    let appendedCount = 0;
     if (fresh.length) {
       const rows = fresh.map(r => [
         r.date, r.channel, r.order_id, r.line_id, r.sku, r.title, r.qty, r.item_gross, r.item_discount,
         r.shipping, r.tax, r.refund, r.marketplace_fees, r.currency, r.region
       ]);
       await appendRows('Sales_Fact', rows);
-      console.log(`✅ Appended ${rows.length} rows to Sales_Fact`);
+      appendedCount = rows.length;
+      console.log(`✅ Appended ${appendedCount} rows to Sales_Fact`);
 
       // Optional belt-and-suspenders hard dedupe (by columns B,C,D = 1,2,3)
       // await deleteDuplicatesByColumns('Sales_Fact', [1,2,3]);
@@ -87,11 +91,19 @@ async function syncSales() {
     }
 
     console.log('Sales sync completed');
+    return { appended: appendedCount };
   } catch (err) {
     console.error('Error syncing sales:', err.message);
-    process.exit(1);
+    throw err;
   }
 }
 
-if (require.main === module) syncSales();
+if (require.main === module) {
+  const args = parseCliArgs();
+  syncSales(args)
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}
+
 module.exports = syncSales;
+
