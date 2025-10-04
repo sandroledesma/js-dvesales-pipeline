@@ -25,27 +25,29 @@ async function syncSales() {
     }
 
     // Map orders to Sales_Fact format (first 15 columns)
-    const rows = orders.map(order => [
-      order.id,                           // Column 1: Order ID
-      order.order_number,                 // Column 2: Order Number
-      order.created_at,                   // Column 3: Created At
-      order.updated_at,                   // Column 4: Updated At
-      order.financial_status,             // Column 5: Financial Status
-      order.fulfillment_status,           // Column 6: Fulfillment Status
-      order.total_price,                  // Column 7: Total Price
-      order.subtotal_price,               // Column 8: Subtotal Price
-      order.total_tax,                    // Column 9: Total Tax
-      order.total_discounts,              // Column 10: Total Discounts
-      order.currency,                     // Column 11: Currency
-      order.customer?.id || '',           // Column 12: Customer ID
-      order.customer?.email || '',        // Column 13: Customer Email
-      order.line_items?.length || 0,      // Column 14: Line Items Count
-      order.tags || '',                   // Column 15: Tags
-    ]);
-
-    // Append to Google Sheets
-    await appendRows('Sales_Fact', rows);
-    console.log(`Successfully synced ${rows.length} orders to Sales_Fact sheet`);
+    const rows = orders.flatMap(order =>
+      order.line_items.map(item => [
+        order.created_at,                                        // date
+        "Shopify",                                               // channel
+        order.id,                                                // order_id
+        item.id,                                                 // line_id
+        item.sku || "",                                          // sku
+        item.title,                                              // title
+        item.quantity,                                           // qty
+        parseFloat(item.price) * item.quantity,                  // item_gross
+        parseFloat(item.total_discount || 0),                    // item_discount
+        parseFloat(order.total_shipping_price_set?.shop_money?.amount || 0), // shipping
+        parseFloat(order.total_tax || 0),                        // tax
+        0,                                                       // refund (future logic)
+        0,                                                       // marketplace_fees
+        order.currency,                                          // currency
+        "US",                                                    // region (hardcoded for now)
+      ])
+    );
+    
+    await appendRows("Sales_Fact", rows);
+    console.log(`✅ Appended ${rows.length} rows to Sales_Fact`);
+    
 
   } catch (error) {
     console.error('Error syncing sales:', error.message);
