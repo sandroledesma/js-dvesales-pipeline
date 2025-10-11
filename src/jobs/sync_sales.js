@@ -55,23 +55,40 @@ async function syncSales(options = {}) {
         const shopifyObjects = orders.flatMap(order => {
           const shipping = Number(order.total_shipping_price_set?.shop_money?.amount || 0);
           const tax = Number(order.total_tax || 0);
-          return (order.line_items || []).map(li => ({
-            date: order.created_at,                 // A
-            channel: 'Shopify',                     // B
-            order_id: String(order.id),             // C
-            line_id: String(li.id),                 // D
-            sku: li.sku || '',                      // E
-            title: li.title || '',                  // F
-            qty: Number(li.quantity || 0),          // G
-            item_gross: Number(li.price || 0) * Number(li.quantity || 0), // H
-            item_discount: Number(li.total_discount || 0),                // I
-            shipping,                               // J
-            tax,                                    // K
-            refund: 0,                              // L
-            marketplace_fees: 0,                    // M
-            currency: order.currency || 'USD',      // N
-            region: 'US',                           // O
-          }));
+          
+          // Calculate Shopify transaction fees
+          // Note: These can be customized based on your Shopify plan and payment processor
+          const orderTotal = Number(order.total_price || 0);
+          const transactionFee = orderTotal * 0.029 + 0.30; // Example: 2.9% + $0.30 (Shopify Payments)
+          
+          return (order.line_items || []).map(li => {
+            // Distribute transaction fee proportionally across line items
+            const lineItemPortion = Number(li.price || 0) * Number(li.quantity || 0) / orderTotal;
+            const lineTransactionFee = transactionFee * lineItemPortion;
+            
+            return {
+              date: order.created_at,                 // A
+              channel: 'Shopify',                     // B
+              order_id: String(order.id),             // C
+              line_id: String(li.id),                 // D
+              sku: li.sku || '',                      // E
+              title: li.title || '',                  // F
+              qty: Number(li.quantity || 0),          // G
+              item_gross: Number(li.price || 0) * Number(li.quantity || 0), // H
+              item_discount: Number(li.total_discount || 0),                // I
+              shipping,                               // J
+              tax,                                    // K
+              refund: 0,                              // L
+              fulfillment_fee: 0,                     // M - MCF fees come from Amazon
+              referral_fee: 0,                        // N - Not applicable for Shopify
+              transaction_fee: lineTransactionFee,    // O - Shopify payment processing
+              storage_fee: 0,                         // P - Not applicable for Shopify
+              other_fees: 0,                          // Q - Other fees if any
+              total_fees: lineTransactionFee,         // R - Total fees
+              currency: order.currency || 'USD',      // S
+              region: 'US',                           // T
+            };
+          });
         });
 
         console.log(`Prepared ${shopifyObjects.length} Shopify line items`);
@@ -91,10 +108,22 @@ async function syncSales(options = {}) {
         console.log('Fetching Amazon fees...');
         const amazonFees = await getAmazonFinancialEvents(startISO, endISO);
         
-        // Enrich Amazon orders with actual fees
+        // Enrich Amazon orders with actual fee breakdown
         for (const obj of amazonObjects) {
-          const fees = amazonFees.get(obj.order_id) || 0;
-          obj.marketplace_fees = fees;
+          const feeBreakdown = amazonFees.get(obj.order_id) || {
+            fulfillment_fee: 0,
+            referral_fee: 0,
+            storage_fee: 0,
+            other_fees: 0,
+            total_fees: 0
+          };
+          
+          obj.fulfillment_fee = feeBreakdown.fulfillment_fee;
+          obj.referral_fee = feeBreakdown.referral_fee;
+          obj.transaction_fee = 0; // Amazon doesn't have separate transaction fees
+          obj.storage_fee = feeBreakdown.storage_fee;
+          obj.other_fees = feeBreakdown.other_fees;
+          obj.total_fees = feeBreakdown.total_fees;
         }
         
         console.log(`Enriched ${amazonObjects.length} Amazon orders with fee data`);
@@ -130,10 +159,19 @@ async function syncSales(options = {}) {
 
     let appendedCount = 0;
     if (fresh.length) {
-      const rows = fresh.map(r => [
-        r.date, r.channel, r.order_id, r.line_id, r.sku, r.title, r.qty, r.item_gross, r.item_discount,
-        r.shipping, r.tax, r.refund, r.marketplace_fees, r.currency, r.region
-      ]);
+      // Convert timestamps to date-only format for proper filtering
+      const rows = fresh.map((r) => {
+        // Parse ISO timestamp and extract just the date part (YYYY-MM-DD)
+        const dateOnly = r.date ? r.date.split('T')[0] : '';
+        
+        return [
+          dateOnly, r.channel, r.order_id, r.line_id, r.sku, r.title, r.qty, r.item_gross, r.item_discount,
+          r.shipping, r.tax, r.refund, r.fulfillment_fee, r.referral_fee, r.transaction_fee, 
+          r.storage_fee, r.other_fees, 
+          '', // R: total_fees - leave blank, ARRAYFORMULA will calculate it
+          r.currency, r.region
+        ];
+      });
       await appendRows('Sales_Fact', rows);
       appendedCount = rows.length;
       console.log(`✅ Appended ${appendedCount} rows to Sales_Fact`);

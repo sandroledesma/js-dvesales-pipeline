@@ -3,6 +3,21 @@ require('dotenv').config();
 const { getSheetsClient } = require('../clients/sheets');
 
 /**
+ * Convert column number to spreadsheet column letter(s)
+ * @param {number} num - Column number (1-based: 1=A, 27=AA, etc.)
+ * @returns {string} Column letter(s)
+ */
+function columnToLetter(num) {
+  let letter = '';
+  while (num > 0) {
+    const remainder = (num - 1) % 26;
+    letter = String.fromCharCode(65 + remainder) + letter;
+    num = Math.floor((num - 1) / 26);
+  }
+  return letter;
+}
+
+/**
  * Initialize Google Sheets tabs with headers
  */
 async function initSheets() {
@@ -26,21 +41,26 @@ async function initSheets() {
       {
         title: 'Sales_Fact',
         headers: [
-          'date',           // A
-          'channel',        // B
-          'order_id',       // C
-          'line_id',        // D
-          'sku',            // E
-          'title',          // F
-          'qty',            // G
-          'item_gross',     // H
-          'item_discount',  // I
-          'shipping',       // J
-          'tax',            // K
-          'refund',         // L
-          'marketplace_fees', // M
-          'currency',       // N
-          'region',         // O
+          'date',              // A
+          'channel',           // B
+          'order_id',          // C
+          'line_id',           // D
+          'sku',               // E
+          'title',             // F
+          'qty',               // G
+          'item_gross',        // H
+          'item_discount',     // I
+          'shipping',          // J
+          'tax',               // K
+          'refund',            // L
+          'fulfillment_fee',   // M - FBA/MCF fulfillment fees
+          'referral_fee',      // N - Amazon referral/commission fees
+          'transaction_fee',   // O - Shopify transaction/payment processing
+          'storage_fee',       // P - Amazon storage fees
+          'other_fees',        // Q - Miscellaneous fees
+          'total_fees',        // R - Sum of all fees (M+N+O+P+Q)
+          'currency',          // S
+          'region',            // T
         ],
       },
       {
@@ -79,28 +99,33 @@ async function initSheets() {
       {
         title: 'Model_Profitability',
         headers: [
-          'date',           // A
-          'channel',        // B
-          'order_id',       // C
-          'line_id',        // D
-          'sku',            // E
-          'title',          // F
-          'qty',            // G
-          'revenue',        // H
-          'model_cost',     // I
-          'total_cost',     // J
-          'marketplace_fees', // K
-          'shipping',       // L
-          'tax',            // M
-          'refund',         // N
-          'gross_profit',   // O
-          'net_profit',     // P
-          'gross_margin_%', // Q
-          'net_margin_%',   // R
-          'unit_revenue',   // S
-          'unit_profit',    // T
-          'currency',       // U
-          'region',         // V
+          'date',              // A
+          'channel',           // B
+          'order_id',          // C
+          'line_id',           // D
+          'sku',               // E
+          'title',             // F
+          'qty',               // G
+          'revenue',           // H
+          'model_cost',        // I
+          'total_cost',        // J
+          'fulfillment_fee',   // K
+          'referral_fee',      // L
+          'transaction_fee',   // M
+          'storage_fee',       // N
+          'other_fees',        // O
+          'total_fees',        // P
+          'shipping',          // Q
+          'tax',               // R
+          'refund',            // S
+          'gross_profit',      // T
+          'net_profit',        // U
+          'gross_margin_%',    // V
+          'net_margin_%',      // W
+          'unit_revenue',      // X
+          'unit_profit',       // Y
+          'currency',          // Z
+          'region',            // AA
         ],
       },
       {
@@ -109,6 +134,19 @@ async function initSheets() {
           'sku',            // A
           'model_cost',     // B
           'notes',          // C
+        ],
+      },
+      {
+        title: 'Sales_Targets',
+        headers: [
+          'month',                  // A
+          'amazon_2024_actual',     // B
+          'shopify_2024_actual',    // C
+          'total_2024_actual',      // D
+          'amazon_2025_target',     // E
+          'shopify_2025_target',    // F
+          'total_2025_target',      // G
+          'growth_rate',            // H
         ],
       },
     ];
@@ -141,9 +179,10 @@ async function initSheets() {
 
       // Add headers (row 1)
       console.log(`Adding headers to ${config.title}...`);
+      const lastColumn = columnToLetter(config.headers.length);
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${config.title}!A1:${String.fromCharCode(64 + config.headers.length)}1`,
+        range: `${config.title}!A1:${lastColumn}1`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [config.headers],

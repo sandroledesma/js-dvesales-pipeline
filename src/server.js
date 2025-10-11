@@ -5,6 +5,7 @@ const url = require('url');
 const syncSales = require('./jobs/sync_sales');
 const syncInventory = require('./jobs/sync_inventory');
 const syncProfitability = require('./jobs/sync_profitability');
+const syncModelCosts = require('./jobs/sync_model_costs');
 
 const PORT = process.env.PORT || 8080;
 const SYNC_TOKEN = process.env.SYNC_TOKEN;
@@ -176,6 +177,46 @@ async function handleProfitabilitySync(req, res, query) {
 }
 
 /**
+ * Handle /sync/model-costs endpoint
+ */
+async function handleModelCostsSync(req, res, query) {
+  // Check authentication
+  if (!verifyToken(req, query)) {
+    return sendJson(res, 401, { ok: false, error: 'Unauthorized: invalid or missing token' });
+  }
+
+  // Check concurrency lock
+  if (isRunning) {
+    return sendJson(res, 409, { ok: false, error: 'Sync already in progress' });
+  }
+
+  try {
+    isRunning = true;
+
+    console.log(`[${new Date().toISOString()}] Starting model costs sync`);
+
+    // Call model costs sync function
+    const result = await syncModelCosts();
+
+    console.log(`[${new Date().toISOString()}] Model costs sync completed successfully`);
+
+    sendJson(res, 200, {
+      ok: true,
+      updated: result?.updated || 0,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Model costs sync failed:`, error.message);
+    sendJson(res, 500, {
+      ok: false,
+      error: error.message,
+    });
+  } finally {
+    isRunning = false;
+  }
+}
+
+/**
  * Request handler
  */
 async function requestHandler(req, res) {
@@ -201,6 +242,10 @@ async function requestHandler(req, res) {
     return await handleProfitabilitySync(req, res, query);
   }
 
+  if (pathname === '/sync/model-costs') {
+    return await handleModelCostsSync(req, res, query);
+  }
+
   if (pathname === '/health' || pathname === '/') {
     return sendJson(res, 200, { ok: true, status: 'healthy', running: isRunning });
   }
@@ -220,6 +265,7 @@ server.listen(PORT, () => {
   console.log(`  GET /sync?days=7&channels=shopify,amazon`);
   console.log(`  GET /sync/inventory`);
   console.log(`  GET /sync/profitability`);
+  console.log(`  GET /sync/model-costs`);
   console.log(`  GET /health`);
   console.log(`Authentication: X-Sync-Token header or ?token=... query param`);
 });

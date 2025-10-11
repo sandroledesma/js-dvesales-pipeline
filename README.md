@@ -116,9 +116,15 @@ This will:
 - Write results to `Model_Profitability`
 - Display profitability breakdown by channel
 
-**Marketplace Fees**:
-- **Amazon**: Fees are automatically fetched from Amazon Financial Events API (FBA fees, referral fees, etc.)
-- **Shopify**: Fees can be calculated or manually populated in Sales_Fact
+**Fee Breakdown**:
+- **Amazon Orders**: Fees automatically fetched from Amazon Financial Events API
+  - Fulfillment fees (FBA/MCF)
+  - Referral fees (commission)
+  - Storage fees
+  - Other fees
+- **Shopify Orders**: Transaction fees calculated based on payment processor
+  - Default: 2.9% + $0.30 (Shopify Payments)
+  - Customizable in `sync_sales.js`
 
 **Note**: For accurate profitability calculations, populate the `Model_Costs` sheet with your product costs (SKU → cost mapping)
 
@@ -224,25 +230,30 @@ This pipeline is designed for businesses using **Amazon Multi-Channel Fulfillmen
 
 ### Schema Reference
 
-#### Sales_Fact (Columns A-O)
+#### Sales_Fact (Columns A-T)
 
-| Column | Name             | Description                          |
-|--------|------------------|--------------------------------------|
-| A      | date             | Order date (ISO format)              |
-| B      | channel          | "Shopify" or "Amazon"                |
-| C      | order_id         | Platform order ID                    |
-| D      | line_id          | Line item ID (unique per order)      |
-| E      | sku              | Product SKU                          |
-| F      | title            | Product title                        |
-| G      | qty              | Quantity ordered                     |
-| H      | item_gross       | Item subtotal (price × qty)          |
-| I      | item_discount    | Discount amount                      |
-| J      | shipping         | Shipping cost                        |
-| K      | tax              | Tax amount                           |
-| L      | refund           | Refund amount (future)               |
-| M      | marketplace_fees | Marketplace fees (future)            |
-| N      | currency         | Currency code (e.g., "USD")          |
-| O      | region           | Country/region code                  |
+| Column | Name             | Description                                      |
+|--------|------------------|--------------------------------------------------|
+| A      | date             | Order date (ISO format)                          |
+| B      | channel          | "Shopify" or "Amazon"                            |
+| C      | order_id         | Platform order ID                                |
+| D      | line_id          | Line item ID (unique per order)                  |
+| E      | sku              | Product SKU                                      |
+| F      | title            | Product title                                    |
+| G      | qty              | Quantity ordered                                 |
+| H      | item_gross       | Item subtotal (price × qty)                      |
+| I      | item_discount    | Discount amount                                  |
+| J      | shipping         | Shipping cost                                    |
+| K      | tax              | Tax amount                                       |
+| L      | refund           | Refund amount                                    |
+| M      | fulfillment_fee  | FBA/MCF fulfillment fees (Amazon)                |
+| N      | referral_fee     | Amazon referral/commission fees                  |
+| O      | transaction_fee  | Shopify payment processing fees                  |
+| P      | storage_fee      | Amazon storage fees                              |
+| Q      | other_fees       | Miscellaneous fees                               |
+| R      | total_fees       | Sum of all fees (M+N+O+P+Q)                      |
+| S      | currency         | Currency code (e.g., "USD")                      |
+| T      | region           | Country/region code                              |
 
 #### Inventory_Feed (Columns A-M)
 
@@ -262,7 +273,7 @@ This pipeline is designed for businesses using **Amazon Multi-Channel Fulfillmen
 | L      | weeks_of_supply     | Weeks of inventory remaining                   |
 | M      | reorder_date        | Suggested reorder date (or "REORDER NOW")      |
 
-#### Model_Profitability (Columns A-V)
+#### Model_Profitability (Columns A-AA)
 
 | Column | Name              | Description                                    |
 |--------|-------------------|------------------------------------------------|
@@ -276,18 +287,23 @@ This pipeline is designed for businesses using **Amazon Multi-Channel Fulfillmen
 | H      | revenue           | Net revenue (gross - discounts)                |
 | I      | model_cost        | Unit cost from Model_Costs sheet               |
 | J      | total_cost        | Total product cost (model_cost × qty)          |
-| K      | marketplace_fees  | Fees from Amazon Financial Events or Shopify   |
-| L      | shipping          | Shipping charged (pass-through)                |
-| M      | tax               | Tax charged (pass-through)                     |
-| N      | refund            | Refund amount                                  |
-| O      | gross_profit      | Revenue - total_cost                           |
-| P      | net_profit        | Gross profit - fees - refunds                  |
-| Q      | gross_margin_%    | Gross profit margin percentage                 |
-| R      | net_margin_%      | Net profit margin percentage                   |
-| S      | unit_revenue      | Revenue per unit                               |
-| T      | unit_profit       | Net profit per unit                            |
-| U      | currency          | Currency code                                  |
-| V      | region            | Region/country                                 |
+| K      | fulfillment_fee   | FBA/MCF fulfillment fees                       |
+| L      | referral_fee      | Amazon referral/commission fees                |
+| M      | transaction_fee   | Shopify payment processing fees                |
+| N      | storage_fee       | Amazon storage fees                            |
+| O      | other_fees        | Miscellaneous fees                             |
+| P      | total_fees        | Sum of all fees                                |
+| Q      | shipping          | Shipping charged (pass-through)                |
+| R      | tax               | Tax charged (pass-through)                     |
+| S      | refund            | Refund amount                                  |
+| T      | gross_profit      | Revenue - total_cost                           |
+| U      | net_profit        | Gross profit - total_fees - refunds            |
+| V      | gross_margin_%    | Gross profit margin percentage                 |
+| W      | net_margin_%      | Net profit margin percentage                   |
+| X      | unit_revenue      | Revenue per unit                               |
+| Y      | unit_profit       | Net profit per unit                            |
+| Z      | currency          | Currency code                                  |
+| AA     | region            | Region/country                                 |
 
 #### Model_Costs (Columns A-C)
 

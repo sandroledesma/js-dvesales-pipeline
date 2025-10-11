@@ -8,8 +8,13 @@
     "sync:sales": "node src/jobs/sync_sales.js",
     "sync:inventory": "node src/jobs/sync_inventory.js",
     "sync:profitability": "node src/jobs/sync_profitability.js",
+    "sync:model-costs": "node src/jobs/sync_model_costs.js",
+    "sync:targets": "node src/jobs/sync_targets.js",
+    "clear:sales": "node src/jobs/clear_sales.js",
+    "fix:formulas": "node src/jobs/add_arrayformulas.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "init:sheets": "node src/jobs/init_sheets.js",
+    "init:dashboard": "node src/jobs/init_dashboard.js",
     "init:customers": "node scripts/init_customer_dim.js",
     "backfill:full": "node scripts/backfill_full.js",
     "server": "node src/server.js"

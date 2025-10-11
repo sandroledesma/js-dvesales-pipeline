@@ -160,7 +160,12 @@ async function getAmazonOrders(startISO, endISO) {
             shipping: shipping,
             tax: tax,
             refund: 0,
-            marketplace_fees: 0,
+            fulfillment_fee: 0,    // Will be populated from Financial Events
+            referral_fee: 0,       // Will be populated from Financial Events
+            transaction_fee: 0,    // Not applicable for Amazon
+            storage_fee: 0,        // Will be populated from Financial Events
+            other_fees: 0,         // Will be populated from Financial Events
+            total_fees: 0,         // Will be populated from Financial Events
             currency,
             region: o.ShippingAddress?.CountryCode || 'US'
           });
@@ -228,10 +233,10 @@ async function getAmazonInventory(skus = []) {
 }
 
 /**
- * Get financial events for orders to extract fees
+ * Get financial events for orders to extract fees with breakdown
  * @param {string} startISO - Start date in ISO format
  * @param {string} endISO - End date in ISO format
- * @returns {Promise<Map>} Map of order_id to fee details
+ * @returns {Promise<Map>} Map of order_id to fee breakdown object
  */
 async function getAmazonFinancialEvents(startISO, endISO) {
   const sp = await makeClient();
@@ -263,17 +268,38 @@ async function getAmazonFinancialEvents(startISO, endISO) {
         const orderId = event.AmazonOrderId;
         if (!orderId) continue;
         
-        let totalFees = 0;
+        // Initialize fee breakdown
+        const feeBreakdown = {
+          fulfillment_fee: 0,   // FBA/MCF fulfillment fees
+          referral_fee: 0,      // Referral/commission fees
+          storage_fee: 0,       // Storage fees
+          other_fees: 0,        // Other miscellaneous fees
+          total_fees: 0         // Total of all fees
+        };
         
-        // Sum up all fee types
+        // Categorize fees by type
         for (const item of event.ShipmentItemList || []) {
           const fees = item.ItemFeeList || [];
           for (const fee of fees) {
-            totalFees += Math.abs(amt(fee.FeeAmount));
+            const feeType = fee.FeeType || '';
+            const feeAmount = Math.abs(amt(fee.FeeAmount));
+            
+            // Categorize based on fee type
+            if (feeType.includes('FBA') || feeType.includes('Fulfillment')) {
+              feeBreakdown.fulfillment_fee += feeAmount;
+            } else if (feeType.includes('Commission') || feeType.includes('Referral')) {
+              feeBreakdown.referral_fee += feeAmount;
+            } else if (feeType.includes('Storage')) {
+              feeBreakdown.storage_fee += feeAmount;
+            } else {
+              feeBreakdown.other_fees += feeAmount;
+            }
+            
+            feeBreakdown.total_fees += feeAmount;
           }
         }
         
-        feesByOrder.set(orderId, totalFees);
+        feesByOrder.set(orderId, feeBreakdown);
       }
       
       nextToken = res?.NextToken;
@@ -284,7 +310,7 @@ async function getAmazonFinancialEvents(startISO, endISO) {
       }
     } while (nextToken);
 
-    console.log(`Fetched fees for ${feesByOrder.size} Amazon orders`);
+    console.log(`Fetched fee breakdowns for ${feesByOrder.size} Amazon orders`);
     return feesByOrder;
   } catch (error) {
     console.warn('Error fetching Amazon financial events:', error.message);
