@@ -58,6 +58,59 @@ async function initSheets() {
           'last_seen',      // J
         ],
       },
+      {
+        title: 'Inventory_Feed',
+        headers: [
+          'last_updated',        // A
+          'sku',                 // B
+          'fnsku',               // C
+          'asin',                // D
+          'product_name',        // E
+          'condition',           // F
+          'total_quantity',      // G
+          'fulfillable_quantity',// H
+          'inbound_quantity',    // I
+          'reserved_quantity',   // J
+          'avg_daily_sales',     // K
+          'weeks_of_supply',     // L
+          'reorder_date',        // M
+        ],
+      },
+      {
+        title: 'Model_Profitability',
+        headers: [
+          'date',           // A
+          'channel',        // B
+          'order_id',       // C
+          'line_id',        // D
+          'sku',            // E
+          'title',          // F
+          'qty',            // G
+          'revenue',        // H
+          'model_cost',     // I
+          'total_cost',     // J
+          'marketplace_fees', // K
+          'shipping',       // L
+          'tax',            // M
+          'refund',         // N
+          'gross_profit',   // O
+          'net_profit',     // P
+          'gross_margin_%', // Q
+          'net_margin_%',   // R
+          'unit_revenue',   // S
+          'unit_profit',    // T
+          'currency',       // U
+          'region',         // V
+        ],
+      },
+      {
+        title: 'Model_Costs',
+        headers: [
+          'sku',            // A
+          'model_cost',     // B
+          'notes',          // C
+        ],
+      },
     ];
 
     // Create sheets and add headers

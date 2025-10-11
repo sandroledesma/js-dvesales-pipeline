@@ -3,6 +3,8 @@ require('dotenv').config();
 const http = require('http');
 const url = require('url');
 const syncSales = require('./jobs/sync_sales');
+const syncInventory = require('./jobs/sync_inventory');
+const syncProfitability = require('./jobs/sync_profitability');
 
 const PORT = process.env.PORT || 8080;
 const SYNC_TOKEN = process.env.SYNC_TOKEN;
@@ -41,7 +43,7 @@ function sendJson(res, statusCode, data) {
 }
 
 /**
- * Handle /sync endpoint
+ * Handle /sync endpoint (sales sync)
  */
 async function handleSync(req, res, query) {
   // Check authentication
@@ -66,6 +68,9 @@ async function handleSync(req, res, query) {
       options.start = query.start;
       options.end = query.end;
     }
+    if (query.channels) {
+      options.channels = query.channels;
+    }
 
     console.log(`[${new Date().toISOString()}] Starting sync with options:`, options);
 
@@ -81,6 +86,86 @@ async function handleSync(req, res, query) {
     });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Sync failed:`, error.message);
+    sendJson(res, 500, {
+      ok: false,
+      error: error.message,
+    });
+  } finally {
+    isRunning = false;
+  }
+}
+
+/**
+ * Handle /sync/inventory endpoint
+ */
+async function handleInventorySync(req, res, query) {
+  // Check authentication
+  if (!verifyToken(req, query)) {
+    return sendJson(res, 401, { ok: false, error: 'Unauthorized: invalid or missing token' });
+  }
+
+  // Check concurrency lock
+  if (isRunning) {
+    return sendJson(res, 409, { ok: false, error: 'Sync already in progress' });
+  }
+
+  try {
+    isRunning = true;
+
+    console.log(`[${new Date().toISOString()}] Starting inventory sync`);
+
+    // Call inventory sync function
+    const result = await syncInventory();
+
+    console.log(`[${new Date().toISOString()}] Inventory sync completed successfully`);
+
+    sendJson(res, 200, {
+      ok: true,
+      updated: result?.updated || 0,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Inventory sync failed:`, error.message);
+    sendJson(res, 500, {
+      ok: false,
+      error: error.message,
+    });
+  } finally {
+    isRunning = false;
+  }
+}
+
+/**
+ * Handle /sync/profitability endpoint
+ */
+async function handleProfitabilitySync(req, res, query) {
+  // Check authentication
+  if (!verifyToken(req, query)) {
+    return sendJson(res, 401, { ok: false, error: 'Unauthorized: invalid or missing token' });
+  }
+
+  // Check concurrency lock
+  if (isRunning) {
+    return sendJson(res, 409, { ok: false, error: 'Sync already in progress' });
+  }
+
+  try {
+    isRunning = true;
+
+    console.log(`[${new Date().toISOString()}] Starting profitability sync`);
+
+    // Call profitability sync function
+    const result = await syncProfitability();
+
+    console.log(`[${new Date().toISOString()}] Profitability sync completed successfully`);
+
+    sendJson(res, 200, {
+      ok: true,
+      updated: result?.updated || 0,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Profitability sync failed:`, error.message);
     sendJson(res, 500, {
       ok: false,
       error: error.message,
@@ -108,6 +193,14 @@ async function requestHandler(req, res) {
     return await handleSync(req, res, query);
   }
 
+  if (pathname === '/sync/inventory') {
+    return await handleInventorySync(req, res, query);
+  }
+
+  if (pathname === '/sync/profitability') {
+    return await handleProfitabilitySync(req, res, query);
+  }
+
   if (pathname === '/health' || pathname === '/') {
     return sendJson(res, 200, { ok: true, status: 'healthy', running: isRunning });
   }
@@ -124,6 +217,9 @@ server.listen(PORT, () => {
   console.log(`Endpoints:`);
   console.log(`  GET /sync?days=7`);
   console.log(`  GET /sync?start=YYYY-MM-DD&end=YYYY-MM-DD`);
+  console.log(`  GET /sync?days=7&channels=shopify,amazon`);
+  console.log(`  GET /sync/inventory`);
+  console.log(`  GET /sync/profitability`);
   console.log(`  GET /health`);
   console.log(`Authentication: X-Sync-Token header or ?token=... query param`);
 });

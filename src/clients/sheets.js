@@ -78,9 +78,52 @@ async function deleteDuplicatesByColumns(sheetTitle, columnIndexes) {
   });
 }
 
+/**
+ * Sort a sheet by a specific column
+ * @param {string} sheetTitle - The sheet title
+ * @param {number} columnIndex - Zero-based column index to sort by
+ * @param {boolean} descending - Sort descending (true) or ascending (false)
+ */
+async function sortSheet(sheetTitle, columnIndex, descending = false) {
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  if (!spreadsheetId) throw new Error('GOOGLE_SHEET_ID environment variable is not set');
+
+  const sheets = getSheetsClient();
+  
+  // Get sheet metadata to find sheetId
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = meta.data.sheets.find(s => s.properties.title === sheetTitle);
+  if (!sheet) throw new Error(`Sheet "${sheetTitle}" not found`);
+  const sheetId = sheet.properties.sheetId;
+
+  // Sort the sheet by the specified column
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          sortRange: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: 1, // Skip header row
+            },
+            sortSpecs: [
+              {
+                dimensionIndex: columnIndex,
+                sortOrder: descending ? 'DESCENDING' : 'ASCENDING',
+              },
+            ],
+          },
+        },
+      ],
+    },
+  });
+}
+
 module.exports = {
   appendRows,
   getColumnValues,
   deleteDuplicatesByColumns,
   getSheetsClient,
+  sortSheet,
 };

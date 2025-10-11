@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "sync:sales": "node src/jobs/sync_sales.js",
+    "sync:inventory": "node src/jobs/sync_inventory.js",
+    "sync:profitability": "node src/jobs/sync_profitability.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "init:sheets": "node src/jobs/init_sheets.js",
     "init:customers": "node scripts/init_customer_dim.js",
@@ -17,7 +19,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "amazon-sp-api": "^1.1.7",
     "dotenv": "^17.2.3",
-    "googleapis": "^161.0.0"
+    "googleapis": "^161.0.0",
+    "p-limit": "^7.1.1"
   }
 }
