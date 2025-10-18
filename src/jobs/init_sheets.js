@@ -137,16 +137,13 @@ async function initSheets() {
         ],
       },
       {
-        title: 'Sales_Targets',
+        title: 'Historical_Sales',
         headers: [
-          'month',                  // A
-          'amazon_2024_actual',     // B
-          'shopify_2024_actual',    // C
-          'total_2024_actual',      // D
-          'amazon_2025_target',     // E
-          'shopify_2025_target',    // F
-          'total_2025_target',      // G
-          'growth_rate',            // H
+          'year',           // A
+          'month',          // B
+          'amazon_sales',   // C
+          'shopify_sales',  // D
+          'total_sales',    // E
         ],
       },
     ];

@@ -162,7 +162,21 @@ async function syncSales(options = {}) {
       // Convert timestamps to date-only format for proper filtering
       const rows = fresh.map((r) => {
         // Parse ISO timestamp and extract just the date part (YYYY-MM-DD)
-        const dateOnly = r.date ? r.date.split('T')[0] : '';
+        let dateOnly = '';
+        if (r.date) {
+          // Handle both full timestamps and date-only formats
+          if (r.date.includes('T')) {
+            dateOnly = r.date.split('T')[0];
+          } else if (r.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            dateOnly = r.date; // Already in correct format
+          } else {
+            // Fallback: try to parse and format
+            const date = new Date(r.date);
+            if (!isNaN(date.getTime())) {
+              dateOnly = date.toISOString().split('T')[0];
+            }
+          }
+        }
         
         return [
           dateOnly, r.channel, r.order_id, r.line_id, r.sku, r.title, r.qty, r.item_gross, r.item_discount,

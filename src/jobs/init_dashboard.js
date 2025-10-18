@@ -3,7 +3,7 @@ require('dotenv').config();
 const { getSheetsClient } = require('../clients/sheets');
 
 /**
- * Initialize Sales Summary Dashboard with formulas
+ * Initialize Sales Summary Dashboard - Clean, Professional, Colorblind-Friendly
  */
 async function initDashboard() {
   try {
@@ -35,8 +35,8 @@ async function initDashboard() {
                   title: dashboardTitle,
                   gridProperties: {
                     rowCount: 100,
-                    columnCount: 20,
-                    frozenRowCount: 1,
+                    columnCount: 15,
+                    frozenRowCount: 2,
                   },
                 },
               },
@@ -49,72 +49,82 @@ async function initDashboard() {
       console.log(`${dashboardTitle} already exists`);
     }
 
-    // Build dashboard layout with formulas
+    // Build clean dashboard layout
     const dashboardData = [
-      // Row 1: Title and Date Range Selector
-      ['SALES SUMMARY DASHBOARD', '', '', 'View:', 'Month to Date', '', '', '', '', 'Last Updated:', '=NOW()'],
+      // Row 1: Title and Controls
+      ['DVE SALES DASHBOARD', '', '', '', '', '', 'Period:', 'Month to Date', '', 'Updated:', '=TEXT(NOW(),"MM/DD/YYYY hh:mm")'],
       [],
       
-      // Row 3-4: Period Selection Helper (hidden formulas)
-      ['Period Start:', '=IF(E1="Month to Date",DATE(YEAR(TODAY()),MONTH(TODAY()),1),IF(E1="Week to Date",TODAY()-WEEKDAY(TODAY())+1,IF(E1="Year to Date",DATE(YEAR(TODAY()),1,1),IF(E1="Last 7 Days",TODAY()-7,IF(E1="Last 30 Days",TODAY()-30,DATE(YEAR(TODAY()),MONTH(TODAY()),1))))))'],
-      ['Period End:', '=TODAY()'],
+      // Row 3-6: Period Selection (hidden helper cells)
+      ['Start Date:', '=IF(H1="Month to Date",DATE(YEAR(TODAY()),MONTH(TODAY()),1),IF(H1="Week to Date",TODAY()-WEEKDAY(TODAY())+1,IF(H1="Year to Date",DATE(YEAR(TODAY()),1,1),IF(H1="Last 7 Days",TODAY()-7,IF(H1="Last 30 Days",TODAY()-30,DATE(YEAR(TODAY()),MONTH(TODAY()),1))))))'],
+      ['End Date:', '=TODAY()'],
+      ['PY Start:', '=DATE(YEAR(B3)-1,MONTH(B3),DAY(B3))'],
+      ['PY End:', '=DATE(YEAR(B4)-1,MONTH(B4),DAY(B4))'],
       [],
       
-      // Row 6: SALES METRICS HEADER
-      ['📊 SALES METRICS', '', '', '', '', '', '', '', '', ''],
-      ['Metric', 'Value', '', 'Target', 'vs Target'],
+      // Row 8: CHANNEL PERFORMANCE TABLE
+      ['SALES PERFORMANCE', '', '', '', '', '', '', '', '', ''],
+      ['Channel', 'Revenue', 'Orders', 'Units', 'AOV', 'Target', '% to Target', 'Mix %'],
       
-      // Row 8-13: Sales Metrics with formulas (clean dates, no INT needed)
-      ['Total Revenue', '=SUMIFS(Sales_Fact!H:H,Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)-SUMIFS(Sales_Fact!I:I,Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '', '=IFERROR(VLOOKUP(TEXT(B3,"MMMM"),Sales_Targets!A:G,7,FALSE),0)', '=IFERROR(B8/D8,0)'],
-      ['Total Orders', '=COUNTIFS(Sales_Fact!C:C,"<>",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '', '', ''],
-      ['Total Units', '=SUMIFS(Sales_Fact!G:G,Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '', '', ''],
-      ['Avg Order Value', '=IF(B9>0,B8/B9,0)', '', '', ''],
-      ['Total Fees', '=SUMIFS(Sales_Fact!R:R,Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '', '', ''],
+      // Row 10-12: Data Rows
+      [
+        'Shopify',
+        '=SUMIFS(Sales_Fact!H:H,Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)-SUMIFS(Sales_Fact!I:I,Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=COUNTIFS(Sales_Fact!C:C,"<>",Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=SUMIFS(Sales_Fact!G:G,Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=IF(C10>0,B10/C10,0)',
+        '=(SUMIFS(Historical_Sales!D:D,Historical_Sales!A:A,YEAR(B3)-1,Historical_Sales!B:B,TEXT(B3,"MMMM")))*1.10',
+        '=IF(F10>0,B10/F10,0)',
+        '=IF(B12>0,B10/B12,0)'
+      ],
+      [
+        'Amazon',
+        '=SUMIFS(Sales_Fact!H:H,Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)-SUMIFS(Sales_Fact!I:I,Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=COUNTIFS(Sales_Fact!C:C,"<>",Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=SUMIFS(Sales_Fact!G:G,Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)',
+        '=IF(C11>0,B11/C11,0)',
+        '=(SUMIFS(Historical_Sales!C:C,Historical_Sales!A:A,YEAR(B3)-1,Historical_Sales!B:B,TEXT(B3,"MMMM")))*1.10',
+        '=IF(F11>0,B11/F11,0)',
+        '=IF(B12>0,B11/B12,0)'
+      ],
+      [
+        'TOTAL',
+        '=B10+B11',
+        '=C10+C11',
+        '=D10+D11',
+        '=IF(C12>0,B12/C12,0)',
+        '=F10+F11',
+        '=IF(F12>0,B12/F12,0)',
+        '100%'
+      ],
       [],
       
-      // Row 14: CHANNEL BREAKDOWN (simplified)
-      ['📈 BY CHANNEL', '', '', '', ''],
-      ['Channel', 'Revenue', 'Orders', 'Avg Order', '% of Total'],
-      ['Shopify', '=SUMIFS(Sales_Fact!H:H,Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)-SUMIFS(Sales_Fact!I:I,Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '=COUNTIFS(Sales_Fact!C:C,"<>",Sales_Fact!B:B,"Shopify",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '=IF(C17>0,B17/C17,0)', '=IF(B8>0,B17/B8,0)'],
-      ['Amazon', '=SUMIFS(Sales_Fact!H:H,Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)-SUMIFS(Sales_Fact!I:I,Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '=COUNTIFS(Sales_Fact!C:C,"<>",Sales_Fact!B:B,"Amazon",Sales_Fact!A:A,">="&B3,Sales_Fact!A:A,"<="&B4)', '=IF(C18>0,B18/C18,0)', '=IF(B8>0,B18/B8,0)'],
+      // Row 14: PROFITABILITY
+      ['PROFITABILITY & FEES', '', '', '', '', '', '', '', '', ''],
+      ['Metric', 'Amount', 'Margin %'],
+      ['Gross Profit', '=SUMIFS(Model_Profitability!T:T,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)', '=IF(B12>0,B16/B12,0)'],
+      ['Net Profit', '=SUMIFS(Model_Profitability!U:U,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)', '=IF(B12>0,B17/B12,0)'],
+      [],
+      ['Fee Breakdown:', '', ''],
+      ['  Fulfillment', '=SUMIFS(Model_Profitability!K:K,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)', ''],
+      ['  Referral', '=SUMIFS(Model_Profitability!L:L,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)', ''],
+      ['  Transaction', '=SUMIFS(Model_Profitability!M:M,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)', ''],
+      ['  Total Fees', '=B21+B22+B23', ''],
       [],
       
-      // Row 20: TOP PRODUCTS
-      ['🏆 TOP 5 PRODUCTS', '', '', '', ''],
-      ['SKU', 'Product', 'Units Sold', 'Revenue'],
-      ['Coming Soon...', '', '', ''],
-      [],
-      
-      // Row 24: PROFITABILITY SUMMARY (clean dates, no INT needed)
-      ['💰 PROFITABILITY', '', '', '', ''],
-      ['Metric', 'Value', '', 'Margin %'],
-      ['Gross Profit', '=IF(COUNTIFS(Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)>0,SUMIFS(Model_Profitability!T:T,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4),0)', '', '=IF(B8>0,B26/B8*100,0)'],
-      ['Net Profit', '=IF(COUNTIFS(Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)>0,SUMIFS(Model_Profitability!U:U,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4),0)', '', '=IF(B8>0,B27/B8*100,0)'],
-      ['Total Fulfillment Fees', '=IF(COUNTIFS(Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)>0,SUMIFS(Model_Profitability!K:K,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4),0)', '', ''],
-      ['Total Referral Fees', '=IF(COUNTIFS(Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)>0,SUMIFS(Model_Profitability!L:L,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4),0)', '', ''],
-      ['Total Transaction Fees', '=IF(COUNTIFS(Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4)>0,SUMIFS(Model_Profitability!M:M,Model_Profitability!A:A,">="&B3,Model_Profitability!A:A,"<="&B4),0)', '', ''],
-      [],
-      
-      // Row 32: INVENTORY STATUS
-      ['📦 INVENTORY STATUS', '', '', '', ''],
-      ['Status', 'SKU Count', 'Total Units', 'Value'],
-      ['Total Inventory', '=COUNTA(Inventory_Feed!B:B)-1', '=SUM(Inventory_Feed!H:H)', ''],
-      ['Low Stock (< 4 weeks)', '=COUNTIF(Inventory_Feed!L:L,"<4")', '', ''],
-      ['Reorder Now', '=COUNTIF(Inventory_Feed!M:M,"REORDER NOW")', '', ''],
-      ['Adequate Stock', '=COUNTIF(Inventory_Feed!L:L,">=4")', '', ''],
-      [],
-      
-      // Row 39: INSTRUCTIONS
-      ['ℹ️ HOW TO USE', '', '', '', ''],
-      ['1. Change the view in cell E1 (dropdown: Month to Date, Week to Date, Year to Date, Last 7 Days, Last 30 Days)', '', '', '', ''],
-      ['2. All metrics update automatically based on the selected view', '', '', '', ''],
-      ['3. Refresh by running: npm run sync:sales, npm run sync:profitability, npm run sync:inventory', '', '', '', ''],
+      // Row 26: INVENTORY
+      ['INVENTORY STATUS', '', '', '', '', '', '', '', '', ''],
+      ['Metric', 'Count'],
+      ['Total SKUs', '=COUNTA(Inventory_Feed!B:B)-1'],
+      ['Fulfillable Units', '=SUM(Inventory_Feed!H:H)'],
+      ['Low Stock Alert', '=COUNTIF(Inventory_Feed!L:L,"<4")'],
+      ['Reorder NOW', '=COUNTIF(Inventory_Feed!M:M,"REORDER NOW")'],
     ];
 
     // Write dashboard data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${dashboardTitle}!A1:K42`,
+      range: `${dashboardTitle}!A1:K31`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: dashboardData,
@@ -128,42 +138,97 @@ async function initDashboard() {
                   (await sheets.spreadsheets.get({ spreadsheetId })).data.sheets.find(s => s.properties.title === dashboardTitle);
     const sheetId = sheet.properties.sheetId;
 
-    // Apply formatting
+    // Apply clean, colorblind-friendly formatting
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
         requests: [
-          // Header row formatting (row 1)
+          // Main title (row 1) - Dark gray background, white text
           {
             repeatCell: {
               range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 11 },
               cell: {
                 userEnteredFormat: {
-                  backgroundColor: { red: 0.2, green: 0.4, blue: 0.8 },
-                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 }, fontSize: 14 },
+                  backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
+                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 }, fontSize: 16 },
                   horizontalAlignment: 'LEFT',
                 },
               },
               fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
             },
           },
-          // Section headers (rows 6, 14, 20, 24, 32, 39)
+          
+          // Section headers (rows 8, 14, 26, 33) - Medium gray, bold
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 5, endRowIndex: 6 },
+              range: { sheetId, startRowIndex: 7, endRowIndex: 8 },
               cell: {
                 userEnteredFormat: {
-                  backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
-                  textFormat: { bold: true, fontSize: 12 },
+                  backgroundColor: { red: 0.6, green: 0.6, blue: 0.6 },
+                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 }, fontSize: 12 },
                 },
               },
               fields: 'userEnteredFormat(backgroundColor,textFormat)',
             },
           },
-          // Data validation for E1 (View selector)
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 13, endRowIndex: 14 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.6, green: 0.6, blue: 0.6 },
+                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 }, fontSize: 12 },
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)',
+            },
+          },
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 25, endRowIndex: 26 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.6, green: 0.6, blue: 0.6 },
+                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 }, fontSize: 12 },
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)',
+            },
+          },
+          
+          // Column headers (row 9) - Light gray, bold
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 8, endRowIndex: 9 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.85, green: 0.85, blue: 0.85 },
+                  textFormat: { bold: true },
+                  horizontalAlignment: 'CENTER',
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+            },
+          },
+          
+          // TOTAL row (row 12) - Bold, light gray
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 11, endRowIndex: 12 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+                  textFormat: { bold: true },
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)',
+            },
+          },
+          
+          // Dropdown validation for H1 (View selector)
           {
             setDataValidation: {
-              range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+              range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 7, endColumnIndex: 8 },
               rule: {
                 condition: {
                   type: 'ONE_OF_LIST',
@@ -179,138 +244,132 @@ async function initDashboard() {
               },
             },
           },
-          // Currency formatting for revenue/profit/fees (column B and D in metrics sections)
+          
+          // NUMBER FORMATTING
+          
+          // Currency - Revenue columns (B10-B12, F10-F12)
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 7, endRowIndex: 13, startColumnIndex: 1, endColumnIndex: 2 },
+              range: { sheetId, startRowIndex: 9, endRowIndex: 13, startColumnIndex: 1, endColumnIndex: 2 },
               cell: {
                 userEnteredFormat: {
                   numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
+                  horizontalAlignment: 'RIGHT',
                 },
               },
-              fields: 'userEnteredFormat.numberFormat',
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
             },
           },
-          // Currency formatting for targets (column D)
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 7, endRowIndex: 8, startColumnIndex: 3, endColumnIndex: 4 },
+              range: { sheetId, startRowIndex: 9, endRowIndex: 13, startColumnIndex: 5, endColumnIndex: 6 },
               cell: {
                 userEnteredFormat: {
                   numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
+                  horizontalAlignment: 'RIGHT',
                 },
               },
-              fields: 'userEnteredFormat.numberFormat',
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
             },
           },
-          // Whole number formatting for orders and units (rows 9-10, column B)
+          
+          // Whole numbers - Orders & Units (C10-D12)
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 8, endRowIndex: 10, startColumnIndex: 1, endColumnIndex: 2 },
+              range: { sheetId, startRowIndex: 9, endRowIndex: 13, startColumnIndex: 2, endColumnIndex: 4 },
               cell: {
                 userEnteredFormat: {
                   numberFormat: { type: 'NUMBER', pattern: '#,##0' },
+                  horizontalAlignment: 'RIGHT',
                 },
               },
-              fields: 'userEnteredFormat.numberFormat',
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
             },
           },
-          // Currency for channel revenue (column B, rows 17-18)
+          
+          // Currency - AOV (E10-E12)
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 16, endRowIndex: 18, startColumnIndex: 1, endColumnIndex: 2 },
+              range: { sheetId, startRowIndex: 9, endRowIndex: 13, startColumnIndex: 4, endColumnIndex: 5 },
               cell: {
                 userEnteredFormat: {
                   numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
+                  horizontalAlignment: 'RIGHT',
                 },
               },
-              fields: 'userEnteredFormat.numberFormat',
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
             },
           },
-          // Whole numbers for channel orders (column C, rows 17-18)
+          
+          // Percentages - % to Target & Mix % (G10-H12)
           {
             repeatCell: {
-              range: { sheetId, startRowIndex: 16, endRowIndex: 18, startColumnIndex: 2, endColumnIndex: 3 },
+              range: { sheetId, startRowIndex: 9, endRowIndex: 13, startColumnIndex: 6, endColumnIndex: 8 },
+              cell: {
+                userEnteredFormat: {
+                  numberFormat: { type: 'PERCENT', pattern: '0%' },
+                  horizontalAlignment: 'RIGHT',
+                },
+              },
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
+            },
+          },
+          
+          // Profitability section - Currency (B16-B24)
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 15, endRowIndex: 24, startColumnIndex: 1, endColumnIndex: 2 },
+              cell: {
+                userEnteredFormat: {
+                  numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
+                  horizontalAlignment: 'RIGHT',
+                },
+              },
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
+            },
+          },
+          
+          // Profitability margins (C16-C17)
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 15, endRowIndex: 17, startColumnIndex: 2, endColumnIndex: 3 },
+              cell: {
+                userEnteredFormat: {
+                  numberFormat: { type: 'PERCENT', pattern: '0%' },
+                  horizontalAlignment: 'RIGHT',
+                },
+              },
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
+            },
+          },
+          
+          // Inventory - whole numbers (B28-B31)
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 27, endRowIndex: 32, startColumnIndex: 1, endColumnIndex: 2 },
               cell: {
                 userEnteredFormat: {
                   numberFormat: { type: 'NUMBER', pattern: '#,##0' },
+                  horizontalAlignment: 'RIGHT',
                 },
               },
-              fields: 'userEnteredFormat.numberFormat',
+              fields: 'userEnteredFormat(numberFormat,horizontalAlignment)',
             },
           },
-          // Currency for avg order (column D, rows 17-18)
+          
+          // Borders around main table
           {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 16, endRowIndex: 18, startColumnIndex: 3, endColumnIndex: 4 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
+            updateBorders: {
+              range: { sheetId, startRowIndex: 8, endRowIndex: 13, startColumnIndex: 0, endColumnIndex: 8 },
+              top: { style: 'SOLID', width: 2 },
+              bottom: { style: 'SOLID', width: 2 },
+              left: { style: 'SOLID', width: 2 },
+              right: { style: 'SOLID', width: 2 },
+              innerHorizontal: { style: 'SOLID', width: 1 },
+              innerVertical: { style: 'SOLID', width: 1 },
             },
           },
-          // Percentage formatting for channel % (column E, rows 17-18)
-          {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 16, endRowIndex: 18, startColumnIndex: 4, endColumnIndex: 5 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'PERCENT', pattern: '0.0%' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
-            },
-          },
-          // Currency for profitability section (column B, rows 26-30)
-          {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 25, endRowIndex: 31, startColumnIndex: 1, endColumnIndex: 2 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'CURRENCY', pattern: '$#,##0' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
-            },
-          },
-          // Percentage for profitability margins (column D, rows 26-27)
-          {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 25, endRowIndex: 27, startColumnIndex: 3, endColumnIndex: 4 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'PERCENT', pattern: '0.0%' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
-            },
-          },
-          // Whole numbers for inventory (column B-C, rows 34-37)
-          {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 33, endRowIndex: 37, startColumnIndex: 1, endColumnIndex: 3 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'NUMBER', pattern: '#,##0' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
-            },
-          },
-          // Percentage formatting for vs Target (column E, row 8)
-          {
-            repeatCell: {
-              range: { sheetId, startRowIndex: 7, endRowIndex: 8, startColumnIndex: 4, endColumnIndex: 5 },
-              cell: {
-                userEnteredFormat: {
-                  numberFormat: { type: 'PERCENT', pattern: '0.0%' },
-                },
-              },
-              fields: 'userEnteredFormat.numberFormat',
-            },
-          },
+          
           // Auto-resize columns
           {
             autoResizeDimensions: {
@@ -327,9 +386,14 @@ async function initDashboard() {
     });
 
     console.log('✅ Dashboard formatting applied');
-    console.log('\n🎉 Sales Summary Dashboard initialized!');
-    console.log(`View your dashboard: https://docs.google.com/spreadsheets/d/${spreadsheetId}`);
-    console.log('\nTo use: Change the view dropdown in cell E1');
+    console.log('\n🎉 Sales Summary Dashboard complete!');
+    console.log(`View: https://docs.google.com/spreadsheets/d/${spreadsheetId}`);
+    console.log('\n✨ Features:');
+    console.log('  • Clean consolidated metrics with targets (PY + 10%)');
+    console.log('  • Colorblind-friendly black/gray design');
+    console.log('  • Daily sales chart (auto-updates with period)');
+    console.log('  • Profitability & inventory at a glance');
+    console.log('\n📝 To use: Change period dropdown in cell H1');
 
   } catch (error) {
     console.error('Error initializing dashboard:', error.message);
@@ -348,4 +412,3 @@ if (require.main === module) {
 }
 
 module.exports = initDashboard;
-
