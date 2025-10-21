@@ -17,6 +17,23 @@ function amt(m) {
 }
 
 /**
+ * Calculate ISO week number for a given date
+ * @param {Date} date - The date to calculate ISO week for
+ * @returns {number} ISO week number
+ */
+function getISOWeek(date) {
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - target) / 604800000);
+}
+
+/**
  * Create SP-API client with credentials from environment
  */
 async function makeClient() {
@@ -147,6 +164,13 @@ async function getAmazonOrders(startISO, endISO) {
           const discount = Math.abs(amt(it.PromotionDiscount));
           const tax = itemTax + shippingTax;
 
+          // Calculate date components for Amazon orders
+          const orderDate = new Date(purchaseDate);
+          const isoWeek = getISOWeek(orderDate);
+          const isoYear = orderDate.getFullYear();
+          const yearWeek = `${isoYear}-W${isoWeek.toString().padStart(2, '0')}`;
+          const quarter = Math.ceil((orderDate.getMonth() + 1) / 3);
+
           all.push({
             date: purchaseDate,
             channel: 'Amazon',
@@ -165,9 +189,21 @@ async function getAmazonOrders(startISO, endISO) {
             transaction_fee: 0,    // Not applicable for Amazon
             storage_fee: 0,        // Will be populated from Financial Events
             other_fees: 0,         // Will be populated from Financial Events
-            total_fees: 0,         // Will be populated from Financial Events
+            total_fees: '',        // Will be calculated by ARRAYFORMULA
             currency,
-            region: o.ShippingAddress?.CountryCode || 'US'
+            region: o.ShippingAddress?.CountryCode || 'US',
+            iso_week: isoWeek,
+            iso_year: isoYear,
+            year_week: yearWeek,
+            qtr: quarter,
+            shopify_order_number: '', // Not applicable for Amazon
+            customer_id: '',         // Amazon doesn't provide customer IDs
+            customer_email: '',      // Amazon doesn't provide customer emails
+            customer_name: '',       // Amazon doesn't provide customer names
+            customer_city: o.ShippingAddress?.City || '',
+            customer_region: o.ShippingAddress?.StateOrRegion || '',
+            customer_country: o.ShippingAddress?.CountryCode || '',
+            customer_zip: o.ShippingAddress?.PostalCode || '',
           });
         }
       } catch (error) {

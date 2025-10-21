@@ -5,6 +5,23 @@ const { getShopifyOrders } = require('../clients/shopify');
 const { getAmazonOrders, getAmazonFinancialEvents } = require('../clients/amazon');
 const { appendRows, getColumnValues, deleteDuplicatesByColumns, sortSheet } = require('../clients/sheets');
 
+/**
+ * Calculate ISO week number for a given date
+ * @param {Date} date - The date to calculate ISO week for
+ * @returns {number} ISO week number
+ */
+function getISOWeek(date) {
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - target) / 604800000);
+}
+
 // parse CLI args like --start=YYYY-MM-DD --end=YYYY-MM-DD --days=90 --channels=shopify,amazon
 function parseCliArgs() {
   return Object.fromEntries(
@@ -66,6 +83,17 @@ async function syncSales(options = {}) {
             const lineItemPortion = Number(li.price || 0) * Number(li.quantity || 0) / orderTotal;
             const lineTransactionFee = transactionFee * lineItemPortion;
             
+            // Calculate date components
+            const orderDate = new Date(order.created_at);
+            const isoWeek = getISOWeek(orderDate);
+            const isoYear = orderDate.getFullYear();
+            const yearWeek = `${isoYear}-W${isoWeek.toString().padStart(2, '0')}`;
+            const quarter = Math.ceil((orderDate.getMonth() + 1) / 3);
+            
+            // Customer data
+            const customer = order.customer || {};
+            const shippingAddress = order.shipping_address || {};
+            
             return {
               date: order.created_at,                 // A
               channel: 'Shopify',                     // B
@@ -84,9 +112,21 @@ async function syncSales(options = {}) {
               transaction_fee: lineTransactionFee,    // O - Shopify payment processing
               storage_fee: 0,                         // P - Not applicable for Shopify
               other_fees: 0,                          // Q - Other fees if any
-              total_fees: lineTransactionFee,         // R - Total fees
+              total_fees: '',                         // R - Will be calculated by ARRAYFORMULA
               currency: order.currency || 'USD',      // S
-              region: 'US',                           // T
+              region: shippingAddress.country_code || 'US', // T
+              iso_week: isoWeek,                      // U
+              iso_year: isoYear,                      // V
+              year_week: yearWeek,                     // W
+              qtr: quarter,                           // X
+              shopify_order_number: order.order_number || '', // Y - Customer reference number
+              customer_id: customer.id ? String(customer.id) : '', // Z
+              customer_email: customer.email || '',    // AA
+              customer_name: `${customer.first_name || ''} ${customer.last_name || ''}`.trim(), // AB
+              customer_city: shippingAddress.city || '', // AC
+              customer_region: shippingAddress.province || shippingAddress.state || '', // AD
+              customer_country: shippingAddress.country || '', // AE
+              customer_zip: shippingAddress.zip || '', // AF
             };
           });
         });
@@ -166,15 +206,24 @@ async function syncSales(options = {}) {
         if (r.date) {
           // Handle both full timestamps and date-only formats
           if (r.date.includes('T')) {
+            // Extract date part from ISO timestamp (e.g., "2025-10-17T23:30:16-04:00" -> "2025-10-17")
             dateOnly = r.date.split('T')[0];
           } else if (r.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            dateOnly = r.date; // Already in correct format
+            // Already in correct format
+            dateOnly = r.date;
           } else {
             // Fallback: try to parse and format
             const date = new Date(r.date);
             if (!isNaN(date.getTime())) {
               dateOnly = date.toISOString().split('T')[0];
             }
+          }
+          
+          // Ensure we have a valid date format
+          if (!dateOnly || !dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            console.warn(`Invalid date format for order ${r.order_id}: ${r.date} -> ${dateOnly}`);
+            // Use current date as fallback
+            dateOnly = new Date().toISOString().split('T')[0];
           }
         }
         
@@ -183,7 +232,9 @@ async function syncSales(options = {}) {
           r.shipping, r.tax, r.refund, r.fulfillment_fee, r.referral_fee, r.transaction_fee, 
           r.storage_fee, r.other_fees, 
           '', // R: total_fees - leave blank, ARRAYFORMULA will calculate it
-          r.currency, r.region
+          r.currency, r.region, r.iso_week, r.iso_year, r.year_week, r.qtr,
+          r.shopify_order_number, r.customer_id, r.customer_email, r.customer_name,
+          r.customer_city, r.customer_region, r.customer_country, r.customer_zip
         ];
       });
       await appendRows('Sales_Fact', rows);
@@ -192,8 +243,13 @@ async function syncSales(options = {}) {
 
       // Sort by date column (A = index 0) descending (most recent first)
       console.log('Sorting Sales_Fact by date (most recent first)...');
-      await sortSheet('Sales_Fact', 0, true);
-      console.log('✅ Sorted Sales_Fact');
+      try {
+        await sortSheet('Sales_Fact', 0, true);
+        console.log('✅ Sorted Sales_Fact');
+      } catch (sortError) {
+        console.error('❌ Failed to sort Sales_Fact:', sortError.message);
+        // Continue without sorting rather than failing the entire sync
+      }
 
       // Optional belt-and-suspenders hard dedupe (by columns B,C,D = 1,2,3)
       // await deleteDuplicatesByColumns('Sales_Fact', [1,2,3]);
