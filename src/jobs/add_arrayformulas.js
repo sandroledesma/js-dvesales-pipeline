@@ -24,10 +24,11 @@ async function addArrayFormulas() {
 
     console.log('Cleared existing total_fees column');
 
-    // Add ARRAYFORMULA in R2 that applies to all rows
-    // Formula: =ARRAYFORMULA(IF(A2:A="",,M2:M+N2:N+O2:O+P2:P+Q2:Q))
+    // Add ARRAYFORMULA in R2 that only calculates for rows with data
+    // Formula: =ARRAYFORMULA(IF(A2:A="","",IF(ROW(A2:A)>COUNTA(A2:A)+1,"",M2:M+N2:N+O2:O+P2:P+Q2:Q)))
     // This sums: fulfillment_fee + referral_fee + transaction_fee + storage_fee + other_fees
-    const arrayFormula = '=ARRAYFORMULA(IF(A2:A="",,M2:M+N2:N+O2:O+P2:P+Q2:Q))';
+    // Only calculates for rows that have data in column A
+    const arrayFormula = '=ARRAYFORMULA(IF(A2:A="","",IF(ROW(A2:A)>COUNTA(A2:A)+1,"",M2:M+N2:N+O2:O+P2:P+Q2:Q)))';
     
     await sheets.spreadsheets.values.update({
       spreadsheetId,
@@ -39,8 +40,8 @@ async function addArrayFormulas() {
     });
 
     console.log('✅ Added ARRAYFORMULA to total_fees column (R)');
-    console.log('Formula: =ARRAYFORMULA(IF(A2:A="",,M2:M+N2:N+O2:O+P2:P+Q2:Q))');
-    console.log('\nThis will automatically calculate total_fees for all rows!');
+    console.log('Formula: =ARRAYFORMULA(IF(A2:A="","",IF(ROW(A2:A)>COUNTA(A2:A)+1,"",M2:M+N2:N+O2:O+P2:P+Q2:Q)))');
+    console.log('\nThis will automatically calculate total_fees only for rows with data!');
 
   } catch (error) {
     console.error('Error adding arrayformulas:', error.message);

@@ -10,7 +10,7 @@
     "sync:profitability": "node src/jobs/sync_profitability.js",
     "sync:model-costs": "node src/jobs/sync_model_costs.js",
     "sync:historical": "node src/jobs/sync_historical.js",
-    "clear:sales": "node src/jobs/clear_sales.js",
+    "clear:formulas": "node src/jobs/clear_formulas.js",
     "clear:dashboard": "node src/jobs/clear_dashboard.js",
     "fix:formulas": "node src/jobs/add_arrayformulas.js",
     "test": "echo \"Error: no test specified\" && exit 1",

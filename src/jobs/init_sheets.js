@@ -61,6 +61,18 @@ async function initSheets() {
           'total_fees',        // R - Sum of all fees (M+N+O+P+Q)
           'currency',          // S
           'region',            // T
+          'iso_week',          // U
+          'iso_year',          // V
+          'year_week',         // W
+          'qtr',               // X
+          'shopify_order_number', // Y
+          'customer_id',       // Z
+          'customer_email',    // AA
+          'customer_name',     // AB
+          'customer_city',     // AC
+          'customer_region',   // AD
+          'customer_country',  // AE
+          'customer_zip',      // AF
         ],
       },
       {

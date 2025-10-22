@@ -163,7 +163,7 @@ async function syncSales(options = {}) {
           obj.transaction_fee = 0; // Amazon doesn't have separate transaction fees
           obj.storage_fee = feeBreakdown.storage_fee;
           obj.other_fees = feeBreakdown.other_fees;
-          obj.total_fees = feeBreakdown.total_fees;
+          // Note: total_fees left empty - ARRAYFORMULA will calculate it
         }
         
         console.log(`Enriched ${amazonObjects.length} Amazon orders with fee data`);
