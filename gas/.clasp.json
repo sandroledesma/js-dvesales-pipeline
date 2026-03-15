@@ -1,0 +1,17 @@
+{
+  "scriptId": "YOUR_SCRIPT_ID_HERE",
+  "rootDir": ".",
+  "filePushOrder": [
+    "appsscript.json",
+    "Config.gs",
+    "Utils.gs",
+    "SheetsHelper.gs",
+    "ShopifyClient.gs",
+    "AmazonClient.gs",
+    "SyncSales.gs",
+    "SyncInventory.gs",
+    "SyncProfitability.gs",
+    "InitDashboard.gs",
+    "Code.gs"
+  ]
+}
